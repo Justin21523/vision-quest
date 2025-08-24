@@ -14,6 +14,41 @@ router = APIRouter(prefix="/chat", tags=["NLP - Chat"])
 logger = logging.getLogger(__name__)
 
 
+@router.post("/chat", response_model=ChatResponse)
+async def chat_completion(request: ChatRequest):
+    """對話完成端點"""
+    try:
+        if request.stream:
+
+            def generate():
+                for chunk in chat_service.generate_stream(request):
+                    yield f"data: {json.dumps({'content': chunk})}\n\n"
+                yield "data: [DONE]\n\n"
+
+            return StreamingResponse(
+                generate(),
+                media_type="text/plain",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+            )
+        else:
+            response = chat_service.generate_response(request)
+            return response
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
+
+
+@router.get("/chat/models")
+async def get_available_models():
+    """取得可用模型列表"""
+    return {
+        "models": [
+            {"id": "qwen", "name": "Qwen2-7B-Instruct"},
+            {"id": "llama", "name": "Llama-3.1-8B-Instruct"},
+        ]
+    }
+
+
 @router.post("/", response_model=ChatResponse)
 async def chat_completion(request: ChatRequest):
     """
