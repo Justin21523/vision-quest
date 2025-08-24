@@ -1,0 +1,20 @@
+model:
+  name: "Qwen/Qwen2-7B-Instruct"
+
+lora:
+  rank: 8
+  alpha: 32
+  dropout: 0.1
+  target_modules: ["q_proj", "v_proj", "k_proj", "o_proj"]
+
+data:
+  path: "data/finetune/chat_data.jsonl"
+  max_length: 512
+
+training:
+  output_dir: "models/lora/checkpoints"
+  epochs: 3
+  batch_size: 4
+  learning_rate: 1e-4
+  save_steps: 100
+  logging_steps: 10

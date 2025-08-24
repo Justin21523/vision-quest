@@ -17,13 +17,80 @@ from transformers import (
     Trainer,
     BlipProcessor,
     BlipForConditionalGeneration,
+    DataCollatorForLanguageModeling,
 )
 from peft import LoraConfig, get_peft_model, TaskType
 from datasets import Dataset
 import yaml
+import argparse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def load_config(config_path: str) -> dict:
+    """載入 LoRA 配置"""
+    with open(config_path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def prepare_model_and_tokenizer(config: dict):
+    """準備模型和分詞器"""
+    model_name = config["model"]["name"]
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, torch_dtype=torch.float16, device_map="auto", trust_remote_code=True
+    )
+
+    # 配置 LoRA
+    lora_config = LoraConfig(
+        task_type=TaskType.CAUSAL_LM,
+        r=config["lora"]["rank"],
+        lora_alpha=config["lora"]["alpha"],
+        lora_dropout=config["lora"]["dropout"],
+        target_modules=config["lora"]["target_modules"],
+    )
+
+    model = get_peft_model(model, lora_config)
+    return model, tokenizer
+
+
+def prepare_dataset(config: dict, tokenizer):
+    """準備訓練數據"""
+    # 簡單示例：讀取 JSONL 格式數據
+    data_path = config["data"]["path"]
+
+    # 這裡簡化為示例數據
+    examples = [
+        {"input": "你好", "output": "你好！我是AI助手，有什麼可以幫您的嗎？"},
+        {
+            "input": "介紹一下自己",
+            "output": "我是基於大語言模型微調的AI助手，專注於提供有用的對話服務。",
+        },
+    ]
+
+    def format_example(example):
+        prompt = f"用戶: {example['input']}\n助手: {example['output']}"
+        return {"text": prompt}
+
+    formatted_data = [format_example(ex) for ex in examples]
+    dataset = Dataset.from_list(formatted_data)
+
+    def tokenize_function(examples):
+        return tokenizer(
+            examples["text"],
+            truncation=True,
+            padding=True,
+            max_length=config["data"]["max_length"],
+        )
+
+    tokenized_dataset = dataset.map(tokenize_function, batched=True)
+    return tokenized_dataset
 
 
 class LoRAFineTuner:
@@ -309,27 +376,53 @@ if __name__ == "__main__":
 
 
 def main():
-    parser = argparse.ArgumentParser(description="VisionQuest LoRA 微調")
-    parser.add_argument("--config", required=True, help="配置文件路徑")
-    parser.add_argument("--dry-run", action="store_true", help="僅檢查配置，不執行訓練")
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/lora_config.yaml")
     args = parser.parse_args()
 
-    # Create fine-tuner
-    fine_tuner = LoRAFineTuner(args.config)
+    # 載入配置
+    config = load_config(args.config)
 
-    # Load model
-    fine_tuner.load_base_model()
-    fine_tuner.setup_lora()
+    # 準備模型和數據
+    model, tokenizer = prepare_model_and_tokenizer(config)
+    dataset = prepare_dataset(config, tokenizer)
 
-    if args.dry_run:
-        logger.info("✅ 配置檢查完成，--dry-run 模式結束")
-        return
+    # 訓練配置
+    training_args = TrainingArguments(
+        output_dir=config["training"]["output_dir"],
+        num_train_epochs=config["training"]["epochs"],
+        per_device_train_batch_size=config["training"]["batch_size"],
+        learning_rate=config["training"]["learning_rate"],
+        save_steps=config["training"]["save_steps"],
+        logging_steps=config["training"]["logging_steps"],
+        remove_unused_columns=False,
+    )
 
-    # Start training
-    trainer = fine_tuner.train()
+    # 數據整理器
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokenizer,
+        mlm=False,
+    )
 
-    logger.info("🎉 LoRA 微調完成!")
+    # 訓練器
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=dataset,
+        data_collator=data_collator,
+    )
+
+    # 開始訓練
+    print("開始 LoRA 微調...")
+    trainer.train()
+
+    # 保存模型
+    lora_output_dir = f"models/lora/{config['model']['name'].split('/')[-1]}"
+    os.makedirs(lora_output_dir, exist_ok=True)
+    model.save_pretrained(lora_output_dir)
+    tokenizer.save_pretrained(lora_output_dir)
+
+    print(f"LoRA 模型已保存至: {lora_output_dir}")
 
 
 if __name__ == "__main__":
