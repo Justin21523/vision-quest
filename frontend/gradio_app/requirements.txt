@@ -1,0 +1,4 @@
+# Gradio frontend dependencies
+gradio==4.8.0
+requests==2.31.0
+Pillow==10.1.0
