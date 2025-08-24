@@ -13,8 +13,8 @@ import sys
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR))
 
-from app.main import app
-from app.core.config import settings
+from backend.app.main import app
+from backend.app.core.config import settings
 
 # Create test client
 client = TestClient(app)
