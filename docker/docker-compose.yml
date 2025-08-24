@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ../backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models
+    environment:
+      - ENV=development
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  gradio:
+    build: ../frontend/gradio_app
+    ports:
+      - "7860:7860"
+    depends_on:
+      - backend
+    environment:
+      - API_BASE_URL=http://backend:8000
