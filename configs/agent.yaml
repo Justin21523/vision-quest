@@ -1,0 +1,46 @@
+# configs/agent.yaml
+tools:
+  - name: file_reader
+    description: "Read and analyze local files (txt, pdf, docx)"
+    function: "app.utils.file_tools.read_file"
+    parameters:
+      - name: filepath
+        type: string
+        required: true
+        description: "Path to the file to read"
+    enabled: true
+
+  - name: keyword_extractor
+    description: "Extract keywords and key phrases from text"
+    function: "app.utils.text_tools.extract_keywords"
+    parameters:
+      - name: text
+        type: string
+        required: true
+        description: "Text to extract keywords from"
+      - name: num_keywords
+        type: integer
+        required: false
+        default: 10
+        description: "Number of keywords to extract"
+    enabled: true
+
+  - name: web_search
+    description: "Search the web for information (requires API key)"
+    function: "app.utils.web_tools.search_web"
+    parameters:
+      - name: query
+        type: string
+        required: true
+        description: "Search query"
+      - name: num_results
+        type: integer
+        required: false
+        default: 5
+    enabled: false # Disabled by default
+
+agent_config:
+  max_iterations: 5
+  planning_model: "qwen"
+  execution_timeout: 30
+  allow_code_execution: false

@@ -1,0 +1,180 @@
+{
+  "game_config": {
+    "default_persona": "friendly_guide",
+    "max_scene_length": 500,
+    "max_choices": 4,
+    "auto_save": true,
+    "content_filter": true
+  },
+
+  "personas": {
+    "friendly_guide": {
+      "name": "智慧嚮導",
+      "personality": "友善、博學、耐心，樂於幫助玩家探索世界",
+      "speaking_style": "溫和而富有智慧，使用比喻和故事來解釋複雜概念",
+      "background": "來自古老圖書館的神秘嚮導，擁有豐富的知識和經驗",
+      "content_rules": {
+        "max_violence": "mild",
+        "allow_nsfw": false,
+        "language_filter": true,
+        "educational_focus": true
+      },
+      "response_templates": {
+        "greeting": "歡迎，年輕的探索者。我是{name}，將陪伴你踏上這段奇妙的旅程。",
+        "transition": "當你做出選擇後，世界的面貌慢慢改變...",
+        "encouragement": "你的決定很明智，讓我們繼續前進吧。"
+      }
+    },
+
+    "mysterious_sage": {
+      "name": "神秘賢者",
+      "personality": "深沉、神秘，話語總是蘊含深意",
+      "speaking_style": "簡潔而有力，經常使用象徵性語言",
+      "background": "隱居山林的古老賢者，通曉世間奧秘",
+      "content_rules": {
+        "max_violence": "moderate",
+        "allow_nsfw": false,
+        "language_filter": true,
+        "philosophical_focus": true
+      }
+    }
+  },
+
+  "scenes": {
+    "forest_entrance": {
+      "id": "forest_entrance",
+      "title": "神秘森林入口",
+      "description": "你站在一片古老森林的邊緣，高聳的樹木遮蔽了天空，只有斑駁的陽光透過葉隙灑下。微風帶來花草的芬芳和遠方未知的神秘氣息。一條蜿蜒的小徑消失在樹林深處，似乎在邀請你踏上冒險之旅。",
+      "mood": "mysterious",
+      "environment": "outdoor",
+      "choices": [
+        {
+          "id": "enter_forest",
+          "text": "勇敢地走進森林深處",
+          "consequences": "進入未知領域，可能遇到神奇生物",
+          "next_scene": "deep_forest"
+        },
+        {
+          "id": "observe_surroundings",
+          "text": "仔細觀察周圍環境",
+          "consequences": "獲得更多信息，但時間流逝",
+          "next_scene": "forest_observation"
+        },
+        {
+          "id": "return_village",
+          "text": "返回安全的村莊",
+          "consequences": "錯過冒險機會，但保持安全",
+          "next_scene": "village_square"
+        },
+        {
+          "id": "talk_to_guide",
+          "text": "與智慧嚮導交談",
+          "consequences": "獲得寶貴建議和背景信息",
+          "next_scene": "guide_conversation"
+        }
+      ],
+      "special_conditions": [],
+      "items_available": ["map_fragment", "healing_herb"]
+    },
+
+    "village_square": {
+      "id": "village_square",
+      "title": "寧靜村莊廣場",
+      "description": "你回到了熟悉的村莊廣場，石板路乾淨整潔，周圍是溫馨的小屋。村民們正在進行日常活動，孩子們在廣場上玩耍，空氣中飄著新鮮烘焙麵包的香味。雖然安全，但你內心深處仍然渴望冒險。",
+      "mood": "peaceful",
+      "environment": "settlement",
+      "choices": [
+        {
+          "id": "visit_tavern",
+          "text": "前往小酒館收集信息",
+          "consequences": "聽到有趣的傳說和謠言",
+          "next_scene": "tavern_interior"
+        },
+        {
+          "id": "talk_to_elder",
+          "text": "拜訪村莊長老",
+          "consequences": "獲得智慧建議和任務",
+          "next_scene": "elder_house"
+        },
+        {
+          "id": "return_to_forest",
+          "text": "重新考慮前往森林",
+          "consequences": "準備更充分的冒險",
+          "next_scene": "forest_entrance"
+        },
+        {
+          "id": "rest_and_prepare",
+          "text": "休息並準備裝備",
+          "consequences": "恢復體力，獲得有用物品",
+          "next_scene": "preparation_phase"
+        }
+      ]
+    }
+  },
+
+  "game_mechanics": {
+    "player_stats": {
+      "health": { "min": 0, "max": 100, "default": 100 },
+      "wisdom": { "min": 0, "max": 100, "default": 50 },
+      "courage": { "min": 0, "max": 100, "default": 50 },
+      "knowledge": { "min": 0, "max": 100, "default": 30 }
+    },
+
+    "inventory_slots": 8,
+
+    "items": {
+      "map_fragment": {
+        "name": "地圖碎片",
+        "description": "一片古老地圖的碎片，標記著神秘的地點",
+        "type": "quest",
+        "rarity": "uncommon"
+      },
+      "healing_herb": {
+        "name": "治療草藥",
+        "description": "具有神奇治療效果的野生草藥",
+        "type": "consumable",
+        "effect": "restore_health",
+        "value": 20
+      }
+    },
+
+    "difficulty_settings": {
+      "easy": {
+        "stat_penalties": 0.5,
+        "choice_consequences": "mild",
+        "hint_availability": "frequent"
+      },
+      "normal": {
+        "stat_penalties": 1.0,
+        "choice_consequences": "moderate",
+        "hint_availability": "occasional"
+      },
+      "hard": {
+        "stat_penalties": 1.5,
+        "choice_consequences": "severe",
+        "hint_availability": "rare"
+      }
+    }
+  },
+
+  "content_guidelines": {
+    "violence_levels": {
+      "none": "完全沒有暴力內容",
+      "mild": "輕微的奇幻戰鬥，無血腥描述",
+      "moderate": "適度的冒險危險，但避免圖形化描述",
+      "high": "較激烈的戰鬥場面，但仍適合一般觀眾"
+    },
+
+    "language_filter": {
+      "forbidden_words": ["暴力詞彙", "不當用語"],
+      "replacement_strategy": "creative_alternatives",
+      "severity_levels": ["warning", "replace", "block"]
+    },
+
+    "educational_elements": {
+      "incorporate_learning": true,
+      "subjects": ["歷史", "科學", "文學", "哲學"],
+      "learning_style": "storytelling"
+    }
+  }
+}
