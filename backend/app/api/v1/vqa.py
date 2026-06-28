@@ -9,6 +9,7 @@ demo endpoint for the portfolio site.
 from fastapi import APIRouter, File, UploadFile, HTTPException, Form
 from PIL import Image
 import io
+import time
 
 from app.schemas.vqa import VQAResponse
 
@@ -32,6 +33,7 @@ async def visual_question_answering(
     lang: str = Form(default="en"),
     max_length: int = Form(default=100),
 ):
+    start = time.perf_counter()
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents))
@@ -48,13 +50,19 @@ async def visual_question_answering(
     q_lower = q.lower()
     if ("color" in q_lower) or ("顏色" in q) or ("颜色" in q):
         answer = f"Average color is {avg} (demo heuristic)."
+        reasoning = ["Detected color-related wording in the question.", "Computed an average RGB swatch with Pillow."]
     elif ("size" in q_lower) or ("resolution" in q_lower) or ("多大" in q) or ("尺寸" in q):
         answer = f"Image resolution is {width}×{height}."
+        reasoning = ["Detected size or resolution wording.", "Read image dimensions from the uploaded file header."]
+    elif ("safe" in q_lower) or ("risk" in q_lower) or ("安全" in q):
+        answer = "Use mock-safe review mode: inspect visual evidence, retrieve context, then update state only after confirmation."
+        reasoning = ["Detected safety/risk wording.", "Mapped the question to the demo review workflow."]
     else:
         answer = (
             "This is a lightweight portfolio demo (no large VLM running on the server). "
             f"Image is {width}×{height}, avg_color={avg}."
         )
+        reasoning = ["Validated the image.", "Returned deterministic metadata so the public demo works without model weights."]
 
     return VQAResponse(
         answer=answer,
@@ -63,4 +71,11 @@ async def visual_question_answering(
         language=lang,
         confidence=0.25,
         model_used="demo:vqa-rules",
+        evidence=[
+            f"resolution={width}x{height}",
+            f"avg_color={avg}",
+            "mode=mock-safe",
+        ],
+        reasoning=reasoning,
+        latency_ms=round((time.perf_counter() - start) * 1000, 2),
     )

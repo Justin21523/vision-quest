@@ -18,6 +18,9 @@ class CaptionResponse(BaseModel):
     model: str
     model_used: str
     processing_time_ms: float = 0.0
+    objects: list[str] = Field(default_factory=list)
+    dominant_colors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class BatchCaptionRequest(BaseModel):

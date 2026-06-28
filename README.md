@@ -26,6 +26,15 @@ flowchart LR
 
 The first screen is the product console itself, not a marketing splash. The left rail controls the demo modules, the center panel visualizes the active image/task, and the right panel shows query, answer, telemetry, and reproducible state.
 
+The current demo includes four reviewer scenarios:
+
+| Scenario | What it demonstrates | Screenshot value |
+| --- | --- | --- |
+| Museum Archive Intake | caption, VQA, RAG evidence, safe action planning | First-screen product overview |
+| Game UI Screenshot Review | HUD parsing, branch state, inventory delta | More realistic interaction flow |
+| Research Diagram QA | architecture diagram QA and citation reasoning | Technical explanation surface |
+| Product Dashboard Audit | deployment/runbook validation and telemetry | Ops-ready portfolio proof |
+
 ## Architecture
 
 ```mermaid
@@ -108,12 +117,12 @@ flowchart TB
 | --- | --- | --- |
 | Health | `GET /api/v1/health/` | Returns mock mode, model readiness, CPU/RAM telemetry |
 | Caption | `POST /api/v1/caption/` | Reads image dimensions and dominant color |
-| VQA | `POST /api/v1/vqa/` | Answers color/size/general visual questions |
+| VQA | `POST /api/v1/vqa/` | Answers color/size/safety questions with evidence and reasoning |
 | Chat | `POST /api/v1/chat/` | Returns deterministic assistant text and optional state delta |
-| RAG | `POST /api/v1/rag/ingest/structured`, `GET /api/v1/rag/query` | Ingests and retrieves seeded context |
-| Agent | `POST /api/v1/agent/chat`, `POST /api/v1/agent/process-image` | Simulates tool planning and image processing |
-| Game | `POST /api/v1/game/start`, `POST /api/v1/game/act` | Updates narrative state |
-| History | `GET /api/v1/history/dag` | Returns screenshot-ready flow nodes and edges |
+| RAG | `POST /api/v1/rag/ingest/structured`, `GET /api/v1/rag/query` | Returns source, chunk, score, reason, and metadata |
+| Agent | `POST /api/v1/agent/chat`, `POST /api/v1/agent/process-image` | Simulates tool planning, trace steps, and next actions |
+| Game | `POST /api/v1/game/start`, `POST /api/v1/game/act` | Updates narrative, branch id, choices, and state delta |
+| History | `GET /api/v1/history/dag` | Returns screenshot-ready flow nodes, edges, and summary |
 
 ## Local Setup
 
@@ -179,12 +188,33 @@ The workflow lives at `.github/workflows/deploy-pages.yml`. It deploys `frontend
 | --- | --- |
 | Cover image | `docs/demo/cover.png` |
 | Guided video | `docs/demo/demo/demo-tour.webm` |
-| Console overview | `docs/demo/screenshots/01-console-overview.png` |
-| VQA state | `docs/demo/screenshots/02-vqa.png` |
-| RAG state | `docs/demo/screenshots/03-rag.png` |
-| Agent state | `docs/demo/screenshots/04-agent.png` |
-| Adventure state | `docs/demo/screenshots/05-adventure.png` |
-| History DAG state | `docs/demo/screenshots/06-dag.png` |
+| Workspace overview | `docs/demo/screenshots/01-workspace-overview.png` |
+| Pipeline running | `docs/demo/screenshots/02-pipeline-running.png` |
+| Vision Lab | `docs/demo/screenshots/03-vision-lab.png` |
+| Knowledge Base | `docs/demo/screenshots/04-knowledge-base.png` |
+| Agent Trace | `docs/demo/screenshots/05-agent-trace.png` |
+| Adventure State | `docs/demo/screenshots/06-adventure-state.png` |
+| API Inspector | `docs/demo/screenshots/07-api-inspector.png` |
+| System Monitor | `docs/demo/screenshots/08-system-monitor.png` |
+| Alternate scenario | `docs/demo/screenshots/09-scenario-game-ui.png` |
+
+## Recording Flow
+
+```mermaid
+journey
+    title Interviewer Demo Tour
+    section First screen
+      Open public URL: 5: Reviewer
+      Inspect scenario cards and pipeline: 5: Reviewer
+    section Product flow
+      Run next step twice: 4: Reviewer
+      Open Vision Lab and Knowledge Base: 5: Reviewer
+      Inspect Agent Trace and Adventure State: 5: Reviewer
+    section Engineering proof
+      Open API Inspector: 5: Reviewer
+      Open System Monitor: 4: Reviewer
+      Switch to Game UI scenario: 4: Reviewer
+```
 
 ## Interview Highlights
 

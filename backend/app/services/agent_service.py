@@ -18,11 +18,30 @@ class AgentService:
         }
 
     async def run_reasoning_loop(self, user_input: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        steps = [
+            {"step": "parse_intent", "status": "complete", "detail": "Classified reviewer request and selected demo-safe tools."},
+        ]
         if "knowledge" in user_input.lower() or "rag" in user_input.lower():
             result = await self.execute_task("knowledge_retrieval", {"query": user_input})
-            return {"content": "I searched the demo knowledge base and found relevant project context.", "tool_used": "knowledge_retrieval", "tool_result": result}
+            steps.append({"step": "knowledge_retrieval", "status": "complete", "detail": "Retrieved cited chunks from the in-memory demo corpus."})
+            steps.append({"step": "state_recommendation", "status": "complete", "detail": "Prepared a safe next action without mutating persistent data."})
+            return {
+                "content": "I searched the demo knowledge base and found relevant project context.",
+                "tool_used": "knowledge_retrieval",
+                "tool_result": result,
+                "steps": steps,
+                "next_actions": ["inspect evidence", "open API inspector", "record branch note"],
+                "demo_mode": True,
+            }
         response = await self.chat_service.generate_response(ChatRequest(messages=[ChatMessage(role="user", content=user_input)]))
-        return {"content": response.message.content, "tool_used": None}
+        steps.append({"step": "draft_response", "status": "complete", "detail": "Generated a deterministic mock-safe assistant response."})
+        return {
+            "content": response.message.content,
+            "tool_used": None,
+            "steps": steps,
+            "next_actions": ["ask a visual question", "query knowledge context"],
+            "demo_mode": True,
+        }
 
     async def execute_task(self, task_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
         if task_type not in self.available_tools:
@@ -34,13 +53,25 @@ class AgentService:
         if not image_bytes:
             return {"error": "Missing image_bytes"}
         output_bytes = remove_background(image_bytes)
-        return {"status": "success", "message": "Background processed", "size": len(output_bytes), "output_path": "demo://processed/background.png"}
+        return {
+            "status": "success",
+            "message": "Background processed",
+            "size": len(output_bytes),
+            "output_path": "demo://processed/background.png",
+            "artifact": {"kind": "transparent_png", "reviewable": True},
+        }
 
     async def _tool_search_knowledge(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        return {"results": self.rag_service.query(data.get("query", ""), k=2)}
+        query = data.get("query", "")
+        return {"query": query, "results": self.rag_service.query(query, k=2), "mode": "in-memory-demo"}
 
     async def _tool_visual_analysis(self, data: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "description": "A demo visual asset with clear foreground structure and portfolio-ready metadata.",
             "objects": ["interface", "image-panel", "semantic-tags"],
+            "confidence": 0.82,
+            "recommended_questions": [
+                "What changed in this screenshot?",
+                "Which evidence should be retrieved before state update?",
+            ],
         }

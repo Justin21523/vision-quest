@@ -17,3 +17,6 @@ class VQAResponse(BaseModel):
     language: str
     confidence: float = Field(ge=0.0, le=1.0)
     model_used: str
+    evidence: list[str] = Field(default_factory=list)
+    reasoning: list[str] = Field(default_factory=list)
+    latency_ms: float = 0.0

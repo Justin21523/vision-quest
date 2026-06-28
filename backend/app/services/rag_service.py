@@ -41,4 +41,21 @@ class RAGService:
             return sum(1 for word in words if word in content)
 
         ranked = sorted(self.documents, key=score, reverse=True)
-        return ranked[: max(1, k)]
+        top = ranked[: max(1, k)]
+        max_score = max([score(doc) for doc in top] or [1]) or 1
+        results: List[Dict[str, Any]] = []
+        for index, doc in enumerate(top):
+            raw_score = score(doc)
+            metadata = doc.get("metadata") or {}
+            source = metadata.get("name") or metadata.get("source") or f"demo-doc-{index + 1}"
+            results.append(
+                {
+                    "source": source,
+                    "chunk": doc["content"],
+                    "content": doc["content"],
+                    "score": round(0.58 + (raw_score / max_score) * 0.37, 2),
+                    "reason": "Keyword overlap with reviewer question" if raw_score else "Fallback context for public demo",
+                    "metadata": metadata,
+                }
+            )
+        return results

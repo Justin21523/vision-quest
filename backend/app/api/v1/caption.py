@@ -18,6 +18,20 @@ def _avg_rgb_hex(image: Image.Image) -> str:
     return f"#{int(r):02x}{int(g):02x}{int(b):02x}"
 
 
+def _dominant_swatches(image: Image.Image) -> list[str]:
+    im = image.convert("RGB").resize((48, 48))
+    colors = im.getcolors(maxcolors=48 * 48) or []
+    ranked = sorted(colors, key=lambda item: item[0], reverse=True)[:4]
+    return [f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}" for _, rgb in ranked]
+
+
+def _heuristic_objects(width: int, height: int, avg: str) -> list[str]:
+    orientation = "wide panel" if width >= height else "portrait panel"
+    brightness = sum(int(avg[index : index + 2], 16) for index in (1, 3, 5)) / 3
+    tone = "bright interface region" if brightness >= 128 else "dark interface region"
+    return [orientation, tone, "metadata surface", "review target"]
+
+
 @router.post("/", response_model=CaptionResponse)
 async def generate_caption(
     file: UploadFile = File(...),
@@ -36,8 +50,11 @@ async def generate_caption(
     width, height = image.size
     fmt = (image.format or "unknown").upper()
     avg = _avg_rgb_hex(image)
+    objects = _heuristic_objects(width, height, avg)
+    swatches = _dominant_swatches(image)
     caption = (
         f"Demo caption: {fmt} image, {width}x{height}px, average color {avg}. "
+        f"The mock-safe analyzer found {', '.join(objects[:3])}. "
         f"Parameters max_length={max_length}, beams={num_beams}, temperature={temperature:.1f}."
     )
     model = "demo:pillow-metadata"
@@ -49,4 +66,7 @@ async def generate_caption(
         model=model,
         model_used=model,
         processing_time_ms=round((time.perf_counter() - start) * 1000, 2),
+        objects=objects,
+        dominant_colors=swatches,
+        warnings=["mock-safe heuristic output; no GPU model loaded"],
     )
