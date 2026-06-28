@@ -1,19 +1,28 @@
 # backend/app/api/v1/vqa.py
+"""
+VQA API (portfolio demo - lightweight).
+
+Avoids heavyweight ML dependencies (LLaVA/Qwen-VL) while keeping an interactive
+demo endpoint for the portfolio site.
+"""
+
 from fastapi import APIRouter, File, UploadFile, HTTPException, Form
+from PIL import Image
+import io
 
-from pathlib import Path
-import sys
+from app.schemas.vqa import VQAResponse
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT_DIR))
+router = APIRouter(prefix="/vqa", tags=["Vision - VQA (Demo)"])
 
-from backend.app.services.vqa_service import VQAService
-from backend.app.schemas.vqa import VQARequest, VQAResponse
-from backend.app.core.security import validate_image
-import logging
 
-router = APIRouter(prefix="/vqa", tags=["Vision - VQA"])
-logger = logging.getLogger(__name__)
+def _avg_rgb_hex(image: Image.Image) -> str:
+    im = image.convert("RGB")
+    im = im.resize((64, 64))
+    pixels = list(im.getdata())
+    r = sum(p[0] for p in pixels) / len(pixels)
+    g = sum(p[1] for p in pixels) / len(pixels)
+    b = sum(p[2] for p in pixels) / len(pixels)
+    return f"#{int(r):02x}{int(g):02x}{int(b):02x}"
 
 
 @router.post("/", response_model=VQAResponse)
@@ -23,30 +32,35 @@ async def visual_question_answering(
     lang: str = Form(default="en"),
     max_length: int = Form(default=100),
 ):
-    """
-    Visual Question Answering using LLaVA or Qwen-VL
-    Supports Chinese (zh-tw/zh-cn) and English
-    """
     try:
-        # Validate inputs
-        validated_image = await validate_image(file)
-        if not question.strip():
-            raise HTTPException(status_code=400, detail="Question cannot be empty")
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid image file")
 
-        # Initialize service
-        vqa_service = VQAService()
+    q = (question or "").strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-        # Generate answer
-        result = await vqa_service.answer_question(
-            image=validated_image,
-            question=question,
-            language=lang,
-            max_length=max_length,
+    width, height = image.size
+    avg = _avg_rgb_hex(image)
+
+    q_lower = q.lower()
+    if ("color" in q_lower) or ("顏色" in q) or ("颜色" in q):
+        answer = f"Average color is {avg} (demo heuristic)."
+    elif ("size" in q_lower) or ("resolution" in q_lower) or ("多大" in q) or ("尺寸" in q):
+        answer = f"Image resolution is {width}×{height}."
+    else:
+        answer = (
+            "This is a lightweight portfolio demo (no large VLM running on the server). "
+            f"Image is {width}×{height}, avg_color={avg}."
         )
 
-        logger.info(f"VQA completed for {file.filename}, question: {question[:50]}...")
-        return VQAResponse(**result)
-
-    except Exception as e:
-        logger.error(f"VQA failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return VQAResponse(
+        answer=answer,
+        raw_answer=answer,
+        question=q,
+        language=lang,
+        confidence=0.25,
+        model_used="demo:vqa-rules",
+    )

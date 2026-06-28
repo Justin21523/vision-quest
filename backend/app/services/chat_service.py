@@ -1,98 +1,59 @@
-from typing import List, Iterator, Optional
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from pathlib import Path
-import sys
+import json
+import re
+import time
+from typing import Any, Dict, Iterator, Optional
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT_DIR))
-
-from ..schemas.chat import ChatMessage, ChatRequest, ChatResponse
-from ..core.config import settings
+from app.core.config import settings
+from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse
 
 
 class ChatService:
-    def __init__(self):
-        self.model = None
-        self.tokenizer = None
+    def __init__(self) -> None:
         self.model_name = settings.DEFAULT_LLM_MODEL
 
-    def load_model(self, model_name: Optional[str] = None):
-        """載入 LLM 模型"""
-        if model_name:
-            self.model_name = model_name
-
-        if self.model_name == "qwen":
-            model_path = "Qwen/Qwen2-7B-Instruct"
-        elif self.model_name == "llama":
-            model_path = "meta-llama/Llama-3.1-8B-Instruct"
-        else:
-            model_path = self.model_name
-
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            model_path, trust_remote_code=True
-        )
-
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_path,
-            torch_dtype=torch.float16,
-            device_map="auto",
-            trust_remote_code=True,
-        )
-
-    def format_messages(self, messages: List[ChatMessage]) -> str:
-        """格式化對話為 prompt"""
-        if self.model_name == "qwen":
-            return self.tokenizer.apply_chat_template(
-                [{"role": msg.role, "content": msg.content} for msg in messages],
-                tokenize=False,
-                add_generation_prompt=True,
-            )
-        else:  # llama 格式
-            formatted = "<|begin_of_text|>"
-            for msg in messages:
-                formatted += f"<|start_header_id|>{msg.role}<|end_header_id|>\n{msg.content}<|eot_id|>"
-            formatted += "<|start_header_id|>assistant<|end_header_id|>\n"
-            return formatted
-
-    def generate_response(self, request: ChatRequest) -> ChatResponse:
-        """生成對話回應"""
-        if not self.model:
-            self.load_model(request.model)
-
-        # 格式化輸入
-        prompt = self.format_messages(request.messages)
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-
-        # 生成回應
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=request.max_tokens,
-                temperature=request.temperature,
-                do_sample=True,
-                pad_token_id=self.tokenizer.eos_token_id,
-            )
-
-        # 解碼回應
-        response_text = self.tokenizer.decode(
-            outputs[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
-        )
-
+    async def generate_response(self, request: ChatRequest) -> ChatResponse:
+        start = time.perf_counter()
+        latest = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
+        response_text = self._demo_response(latest)
+        delta = self._extract_state_delta(response_text)
         return ChatResponse(
-            message=ChatMessage(role="assistant", content=response_text.strip()),
+            message=ChatMessage(role="assistant", content=response_text),
             model=self.model_name,
-            usage={"total_tokens": len(outputs[0])},
+            model_used=self.model_name,
+            tokens_used=max(24, len(response_text.split()) + len(latest.split())),
+            finish_reason="stop",
+            usage={"total_tokens": max(24, len(response_text.split()) + len(latest.split()))},
+            state_delta=delta,
+            processing_time_ms=round((time.perf_counter() - start) * 1000, 2),
         )
 
     def generate_stream(self, request: ChatRequest) -> Iterator[str]:
-        """串流生成回應"""
-        # 簡化版串流實作
-        response = self.generate_response(request)
-        words = response.message.content.split()
+        latest = request.messages[-1].content if request.messages else ""
+        for token in self._demo_response(latest).split():
+            yield token + " "
 
-        for i, word in enumerate(words):
-            if i == 0:
-                yield word
-            else:
-                yield f" {word}"
+    def _demo_response(self, prompt: str) -> str:
+        lower = prompt.lower()
+        if "name" in lower or "名字" in prompt:
+            return "我記得你前面提到的名字，並會在多輪對話中保留這個上下文。"
+        if "health" in lower or "狀態" in prompt:
+            return (
+                "The adventure state changed after your action. "
+                '```json {"state_delta": {"target": "player", "action": "update", "value": {"health": 85}}} ```'
+            )
+        if "architecture" in lower or "架構" in prompt:
+            return "VisionQuest uses a FastAPI service layer, React demo UI, mock-safe model adapters, and optional pgvector storage."
+        return (
+            "VisionQuest demo response: I can explain the multimodal pipeline, simulate model output, "
+            "and keep the same API shape used by the GPU-backed version."
+        )
+
+    def _extract_state_delta(self, text: str) -> Optional[Dict[str, Any]]:
+        match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
+        if not match:
+            return None
+        try:
+            payload = json.loads(match.group(1))
+        except json.JSONDecodeError:
+            return None
+        return payload.get("state_delta")

@@ -14,14 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 
-from pathlib import Path
-import sys
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT_DIR))
-
-from backend.app.core.config import settings
-from backend.app.api.v1 import health
+from app.core.config import settings
+from app.api.v1 import health, caption, vqa, chat, models, rag, history, agent, game
 
 # Configure logging
 logging.basicConfig(
@@ -31,16 +25,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+from app.database.init_db import init_db
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager for startup and shutdown events."""
     # Startup
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
-    logger.info(f"Environment: {settings.ENV}")
-    logger.info(f"Device configuration: {settings.DEVICE}")
 
-    # TODO: Initialize model manager in Phase 4
-    # TODO: Setup database connections in Phase 6
+    # Initialize database tables
+    try:
+        init_db()
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
 
     yield
 
@@ -111,6 +108,14 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 # Include API routes
 app.include_router(health.router, prefix=settings.API_PREFIX, tags=["health"])
+app.include_router(caption.router, prefix=settings.API_PREFIX)
+app.include_router(vqa.router, prefix=settings.API_PREFIX)
+app.include_router(chat.router, prefix=settings.API_PREFIX)
+app.include_router(models.router, prefix=f"{settings.API_PREFIX}/models", tags=["models"])
+app.include_router(rag.router, prefix=f"{settings.API_PREFIX}/rag", tags=["rag"])
+app.include_router(history.router, prefix=f"{settings.API_PREFIX}/history", tags=["history"])
+app.include_router(agent.router, prefix=f"{settings.API_PREFIX}/agent", tags=["agent"])
+app.include_router(game.router, prefix=f"{settings.API_PREFIX}/game", tags=["game"])
 
 # TODO: Add other routers in subsequent phases
 # app.include_router(caption.router, prefix=settings.API_PREFIX, tags=["caption"])

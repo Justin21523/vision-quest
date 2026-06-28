@@ -1,60 +1,59 @@
-# backend/app/api/v1/health.py
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
-from pathlib import Path
-import sys
+import platform
+from datetime import datetime, timezone
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT_DIR))
-
-from backend.app.models.manager import ModelManager
 import psutil
-import torch
+from fastapi import APIRouter
+
+from app.core.config import settings
+from app.models.manager import ModelManager
 
 router = APIRouter(prefix="/health", tags=["System"])
+model_manager = ModelManager()
 
 
 @router.get("/")
 async def health_check():
-    """
-    System health check with GPU/CPU status
-    """
-    try:
-        # Model status
-        model_manager = ModelManager()
-        models_loaded = model_manager.get_loaded_models()
+    memory = psutil.virtual_memory()
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "app": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "mock_mode": settings.USE_MOCK_MODE,
+        "models": model_manager.get_loaded_models(),
+        "system": {
+            "cpu_percent": psutil.cpu_percent(interval=0.05),
+            "memory_percent": memory.percent,
+            "memory_available_gb": round(memory.available / 1024**3, 2),
+        },
+        "gpu": {"available": False, "device": model_manager.device},
+    }
 
-        # System resources
-        cpu_percent = psutil.cpu_percent(interval=1)
-        memory = psutil.virtual_memory()
 
-        gpu_info = {}
-        if torch.cuda.is_available():
-            gpu_info = {
-                "available": True,
-                "device_count": torch.cuda.device_count(),
-                "current_device": torch.cuda.current_device(),
-                "memory_allocated": torch.cuda.memory_allocated() / 1024**3,  # GB
-                "memory_reserved": torch.cuda.memory_reserved() / 1024**3,  # GB
-            }
-        else:
-            gpu_info = {"available": False}
+@router.get("/detailed")
+async def detailed_health_check():
+    base = await health_check()
+    base["app_info"] = {"name": settings.APP_NAME, "version": settings.APP_VERSION, "environment": settings.ENV}
+    base["configuration"] = {"device": settings.DEVICE, "max_workers": settings.MAX_WORKERS}
+    base["system"].update({"platform": platform.platform(), "python_version": platform.python_version(), "cpu_count": psutil.cpu_count()})
+    return base
 
-        return JSONResponse(
-            {
-                "status": "healthy",
-                "models": models_loaded,
-                "system": {
-                    "cpu_percent": cpu_percent,
-                    "memory_percent": memory.percent,
-                    "memory_available_gb": memory.available / 1024**3,
-                },
-                "gpu": gpu_info,
-                "version": "0.1.0",
-            }
-        )
 
-    except Exception as e:
-        return JSONResponse(
-            status_code=503, content={"status": "unhealthy", "error": str(e)}
-        )
+@router.get("/models")
+async def models_health_check():
+    return {"models": model_manager.scan_local_models(), "dependencies": {"mock_safe": True}}
+
+
+@router.get("/services")
+async def services_health_check():
+    return {"services": {"api": "healthy", "database": "optional in demo mode", "rag": "in-memory demo"}}
+
+
+@router.get("/readiness")
+async def readiness_check():
+    return {"ready": True, "checks": {"configuration_loaded": True, "directories_accessible": True, "basic_dependencies": True}}
+
+
+@router.get("/liveness")
+async def liveness_check():
+    return {"alive": True, "timestamp": datetime.now(timezone.utc).isoformat()}

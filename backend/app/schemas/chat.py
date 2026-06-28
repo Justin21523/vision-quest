@@ -25,10 +25,12 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
     message: ChatMessage
-    tokens_used: int
-    finish_reason: str
+    tokens_used: int = 0
+    finish_reason: str = "stop"
     model_used: str
     processing_time_ms: float = Field(default=0.0)
     model: str = Field(..., description="使用的模型")
-    usage: Optional[dict]
+    usage: Optional[dict] = None
+    state_delta: Optional[Dict[str, Any]] = None
